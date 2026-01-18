@@ -715,13 +715,16 @@ export function drawMiniMap(ctx: CanvasRenderingContext2D, tiles: Tile[][], x: n
   const scaleX = w / mapWidth;
   const scaleY = h / mapHeight;
 
-  // Panel background
+  // Panel background with shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(x - 6, y - 6, w + 12, h + 12);
+
   ctx.fillStyle = SC3K_UI.panelDark;
   ctx.fillRect(x - 4, y - 4, w + 8, h + 8);
 
-  // Panel border
-  ctx.strokeStyle = SC3K_UI.border;
-  ctx.lineWidth = 2;
+  // Panel border - thicker and brighter
+  ctx.strokeStyle = '#6090c0';
+  ctx.lineWidth = 3;
   ctx.strokeRect(x - 4, y - 4, w + 8, h + 8);
 
   // Map background

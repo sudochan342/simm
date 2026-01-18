@@ -302,14 +302,14 @@ export default function GameCanvas() {
       ctx.restore();
 
       // Draw UI overlays (not affected by camera)
-      // Mini-map in bottom right
+      // Mini-map in bottom right (smaller, more distinct)
       drawMiniMap(
         ctx,
         tiles,
-        canvas.width - 170,
-        canvas.height - 130,
-        160,
-        120,
+        canvas.width - 115,
+        canvas.height - 95,
+        100,
+        80,
         0,
         0,
         width,
