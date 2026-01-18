@@ -208,17 +208,8 @@ export default function GameCanvas() {
 
           const screen = gridToScreen(x, y, 0);
 
-          // Draw base terrain
-          if (tile.terrain === 'water') {
-            drawWater(ctx, screen.x, screen.y, time, tile.elevation);
-          } else {
-            drawTile(ctx, tile, screen.x, screen.y, showZones);
-
-            // Draw terrain details
-            if (tile.terrain === 'trees' || tile.terrain === 'rock') {
-              drawTerrainDetails(ctx, tile.terrain, screen.x, screen.y, x * 1000 + y);
-            }
-          }
+          // Draw base terrain with time for animations
+          drawTile(ctx, tile, screen.x, screen.y, showZones, time);
 
           // Draw infrastructure
           if (tile.infrastructure) {
