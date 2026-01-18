@@ -418,59 +418,57 @@ function drawWaterPipe(ctx: CanvasRenderingContext2D, x: number, y: number): voi
   }
 }
 
-// Draw zone building using sprites
+// Draw zone building using individual Kenney sprites
 export function drawZoneBuilding(ctx: CanvasRenderingContext2D, tile: Tile, x: number, y: number): void {
   const { zone, zoneDensity, development, elevation, powered } = tile;
   if (!zone || development === 0) return;
 
   const offsetY = -elevation * TILE_DEPTH;
-  const baseY = y + offsetY + TILE_HEIGHT / 2;
+  const baseY = y + offsetY;
 
-  // Get appropriate sprite based on zone type and development level
-  // Level 1-8 maps to different building sprites
+  // Level 1-8 maps to building sprites
   const level = Math.max(1, Math.min(8, development));
-  const seed = tile.x * 1000 + tile.y;
 
-  // Try to draw from sprite sheet first
-  const tileInfo = sprites.getBuildingTileInfo(zone, level, seed);
+  // Get the correct sprite key based on zone type and level
+  let spriteKey: string;
+  switch (zone) {
+    case 'residential':
+      spriteKey = `building_res_${level}`;
+      break;
+    case 'commercial':
+      spriteKey = `building_com_${level}`;
+      break;
+    case 'industrial':
+      spriteKey = `building_ind_${level}`;
+      break;
+    default:
+      return;
+  }
 
-  // Scale building based on development level (1.0 to 1.5)
-  const scale = 1.0 + (level - 1) * 0.07;
-  const scaledWidth = BUILDING_TILE_WIDTH * scale;
-  const scaledHeight = BUILDING_TILE_HEIGHT * scale;
-
-  // Position: center horizontally, align bottom with tile base
-  const drawX = x - scaledWidth / 2;
-  const drawY = baseY - scaledHeight + 10;
-
-  const drawn = sprites.drawBuildingTile(
-    ctx,
-    tileInfo.sheetIndex,
-    tileInfo.tileIndex,
-    drawX,
-    drawY,
-    scale
-  );
-
-  if (!drawn) {
-    // Fallback to direct drawing if sprite sheet not loaded
+  const sprite = sprites.get(spriteKey);
+  if (sprite) {
+    // Draw the Kenney sprite - cityTiles are 132x104, align bottom with tile
+    ctx.drawImage(sprite, x - sprite.width / 2, baseY - sprite.height + 50);
+  } else {
+    // Fallback to colored box only if sprite not available
     const density = zoneDensity || 'light';
+    const seed = tile.x * 1000 + tile.y;
     switch (zone) {
       case 'residential':
-        drawResidentialFallback(ctx, x, baseY, density, development, seed);
+        drawResidentialFallback(ctx, x, baseY + TILE_HEIGHT / 2, density, development, seed);
         break;
       case 'commercial':
-        drawCommercialFallback(ctx, x, baseY, density, development, seed);
+        drawCommercialFallback(ctx, x, baseY + TILE_HEIGHT / 2, density, development, seed);
         break;
       case 'industrial':
-        drawIndustrialFallback(ctx, x, baseY, density, development, seed);
+        drawIndustrialFallback(ctx, x, baseY + TILE_HEIGHT / 2, density, development, seed);
         break;
     }
   }
 
   // Draw no power indicator
   if (!powered) {
-    drawNoPowerIndicator(ctx, x, baseY - 30 - development * 5);
+    drawNoPowerIndicator(ctx, x, baseY - 40);
   }
 }
 
