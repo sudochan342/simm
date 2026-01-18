@@ -418,58 +418,336 @@ function drawWaterPipe(ctx: CanvasRenderingContext2D, x: number, y: number): voi
   }
 }
 
-// Draw zone building using individual Kenney sprites
+// Draw zone building - SimCity 3000 style procedural graphics
 export function drawZoneBuilding(ctx: CanvasRenderingContext2D, tile: Tile, x: number, y: number): void {
   const { zone, zoneDensity, development, elevation, powered } = tile;
   if (!zone || development === 0) return;
 
   const offsetY = -elevation * TILE_DEPTH;
-  const baseY = y + offsetY;
-
-  // Level 1-8 maps to building sprites
+  const baseY = y + offsetY + TILE_HEIGHT / 2;
   const level = Math.max(1, Math.min(8, development));
+  const seed = tile.x * 1000 + tile.y;
 
-  // Get the correct sprite key based on zone type and level
-  let spriteKey: string;
   switch (zone) {
     case 'residential':
-      spriteKey = `building_res_${level}`;
+      drawSC3KResidential(ctx, x, baseY, level, seed);
       break;
     case 'commercial':
-      spriteKey = `building_com_${level}`;
+      drawSC3KCommercial(ctx, x, baseY, level, seed);
       break;
     case 'industrial':
-      spriteKey = `building_ind_${level}`;
+      drawSC3KIndustrial(ctx, x, baseY, level, seed);
       break;
-    default:
-      return;
-  }
-
-  const sprite = sprites.get(spriteKey);
-  if (sprite) {
-    // Draw the Kenney sprite - cityTiles are 132x104, align bottom with tile
-    ctx.drawImage(sprite, x - sprite.width / 2, baseY - sprite.height + 50);
-  } else {
-    // Fallback to colored box only if sprite not available
-    const density = zoneDensity || 'light';
-    const seed = tile.x * 1000 + tile.y;
-    switch (zone) {
-      case 'residential':
-        drawResidentialFallback(ctx, x, baseY + TILE_HEIGHT / 2, density, development, seed);
-        break;
-      case 'commercial':
-        drawCommercialFallback(ctx, x, baseY + TILE_HEIGHT / 2, density, development, seed);
-        break;
-      case 'industrial':
-        drawIndustrialFallback(ctx, x, baseY + TILE_HEIGHT / 2, density, development, seed);
-        break;
-    }
   }
 
   // Draw no power indicator
   if (!powered) {
-    drawNoPowerIndicator(ctx, x, baseY - 40);
+    drawNoPowerIndicator(ctx, x, baseY - 20 - level * 8);
   }
+}
+
+// SC3K Style Residential Buildings
+function drawSC3KResidential(ctx: CanvasRenderingContext2D, x: number, y: number, level: number, seed: number): void {
+  const rand = seedRandom(seed);
+
+  if (level <= 2) {
+    // Small house
+    const w = 28 + rand() * 8;
+    const h = 20 + level * 6;
+    const houseColor = ['#e8d4b8', '#d4c4a8', '#c8b898', '#dcd0b4'][Math.floor(rand() * 4)];
+    const roofColor = ['#8b4513', '#a0522d', '#6b3510', '#7a4420'][Math.floor(rand() * 4)];
+
+    // House body
+    drawIsometricBox(ctx, x, y, w, w * 0.6, h, houseColor);
+
+    // Pitched roof
+    const roofH = 12;
+    ctx.fillStyle = roofColor;
+    ctx.beginPath();
+    ctx.moveTo(x - w/2, y - h);
+    ctx.lineTo(x, y - h - roofH);
+    ctx.lineTo(x + w/2, y - h);
+    ctx.lineTo(x + w/2 + w*0.15, y - h + w*0.15);
+    ctx.lineTo(x + w*0.15, y - h - roofH + w*0.15);
+    ctx.lineTo(x - w/2 + w*0.15, y - h + w*0.15);
+    ctx.closePath();
+    ctx.fill();
+
+    // Door
+    ctx.fillStyle = '#5a3a20';
+    ctx.fillRect(x - 3, y - 12, 6, 12);
+
+    // Windows
+    ctx.fillStyle = '#87ceeb';
+    ctx.fillRect(x - w/3, y - h + 8, 5, 6);
+    ctx.fillRect(x + w/3 - 5, y - h + 8, 5, 6);
+
+  } else if (level <= 5) {
+    // Apartment building
+    const w = 32 + level * 2;
+    const h = 35 + level * 12;
+    const floors = 2 + level;
+    const colors = ['#d4c8b8', '#c8bca8', '#b8a898', '#ccc4b4'];
+
+    drawIsometricBox(ctx, x, y, w, w * 0.5, h, colors[seed % 4]);
+
+    // Windows grid
+    ctx.fillStyle = '#6090c0';
+    const floorH = h / floors;
+    for (let f = 0; f < floors; f++) {
+      for (let wx = 0; wx < 3; wx++) {
+        const winX = x - w/3 + wx * (w/3);
+        const winY = y - h + f * floorH + floorH/2;
+        ctx.fillRect(winX - 2, winY, 4, 5);
+      }
+    }
+
+    // Flat roof edge
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(x - w/2, y - h - 2, w, 2);
+
+  } else {
+    // High-rise apartment
+    const w = 36;
+    const h = 60 + level * 15;
+    const floors = 5 + level;
+
+    drawIsometricBox(ctx, x, y, w, w * 0.5, h, '#c4b8a8');
+
+    // Many windows
+    ctx.fillStyle = '#5080b0';
+    const floorH = h / floors;
+    for (let f = 0; f < floors; f++) {
+      for (let wx = 0; wx < 4; wx++) {
+        const winX = x - w/2 + 4 + wx * 8;
+        const winY = y - h + f * floorH + 4;
+        ctx.fillRect(winX, winY, 5, 4);
+      }
+    }
+
+    // Roof details
+    ctx.fillStyle = '#707070';
+    ctx.fillRect(x - 4, y - h - 8, 8, 8);
+  }
+}
+
+// SC3K Style Commercial Buildings
+function drawSC3KCommercial(ctx: CanvasRenderingContext2D, x: number, y: number, level: number, seed: number): void {
+  const rand = seedRandom(seed);
+
+  if (level <= 2) {
+    // Small shop
+    const w = 30 + rand() * 6;
+    const h = 22 + level * 5;
+    const colors = ['#b8c8d8', '#a8b8c8', '#98a8b8', '#c0d0e0'];
+
+    drawIsometricBox(ctx, x, y, w, w * 0.5, h, colors[seed % 4]);
+
+    // Shop window (large)
+    ctx.fillStyle = '#70a0d0';
+    ctx.fillRect(x - w/3, y - h/2 - 2, w * 0.5, h/2 - 4);
+
+    // Awning
+    ctx.fillStyle = ['#c04040', '#4080c0', '#40a040', '#c0a040'][seed % 4];
+    ctx.beginPath();
+    ctx.moveTo(x - w/2 + 2, y - h + 2);
+    ctx.lineTo(x + w/2 - 2, y - h + 2);
+    ctx.lineTo(x + w/2 + 4, y - h + 8);
+    ctx.lineTo(x - w/2 - 2, y - h + 8);
+    ctx.closePath();
+    ctx.fill();
+
+  } else if (level <= 5) {
+    // Office building
+    const w = 34 + level * 2;
+    const h = 45 + level * 14;
+    const floors = 3 + level;
+
+    // Glass and steel look
+    drawIsometricBox(ctx, x, y, w, w * 0.5, h, '#708898');
+
+    // Glass windows (blue tint)
+    ctx.fillStyle = '#4080b8';
+    const floorH = h / floors;
+    for (let f = 0; f < floors; f++) {
+      ctx.fillRect(x - w/2 + 3, y - h + f * floorH + 3, w - 6, floorH - 5);
+    }
+
+    // Window frames
+    ctx.strokeStyle = '#506070';
+    ctx.lineWidth = 1;
+    for (let f = 0; f < floors; f++) {
+      for (let wx = 0; wx < 4; wx++) {
+        ctx.strokeRect(x - w/2 + 4 + wx * (w/4 - 1), y - h + f * floorH + 4, w/4 - 3, floorH - 7);
+      }
+    }
+
+  } else {
+    // Skyscraper
+    const w = 38;
+    const h = 80 + level * 18;
+    const floors = 8 + level;
+
+    // Modern glass tower
+    drawIsometricBox(ctx, x, y, w, w * 0.45, h, '#607888');
+
+    // Reflective glass
+    ctx.fillStyle = '#3070a0';
+    const floorH = h / floors;
+    for (let f = 0; f < floors; f++) {
+      ctx.fillRect(x - w/2 + 2, y - h + f * floorH + 2, w - 4, floorH - 3);
+    }
+
+    // Spire on top
+    ctx.fillStyle = '#909090';
+    ctx.beginPath();
+    ctx.moveTo(x - 2, y - h);
+    ctx.lineTo(x, y - h - 20);
+    ctx.lineTo(x + 2, y - h);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+// SC3K Style Industrial Buildings
+function drawSC3KIndustrial(ctx: CanvasRenderingContext2D, x: number, y: number, level: number, seed: number): void {
+  const rand = seedRandom(seed);
+
+  if (level <= 2) {
+    // Warehouse
+    const w = 36 + rand() * 8;
+    const h = 20 + level * 4;
+    const colors = ['#909080', '#a09888', '#888878', '#98907c'];
+
+    drawIsometricBox(ctx, x, y, w, w * 0.6, h, colors[seed % 4]);
+
+    // Corrugated roof
+    ctx.fillStyle = '#707068';
+    for (let i = 0; i < 5; i++) {
+      ctx.fillRect(x - w/2 + i * (w/5), y - h - 2, w/5 - 1, 3);
+    }
+
+    // Large door
+    ctx.fillStyle = '#505048';
+    ctx.fillRect(x - 8, y - 14, 16, 14);
+
+  } else if (level <= 5) {
+    // Factory
+    const w = 40 + level * 2;
+    const h = 30 + level * 8;
+
+    drawIsometricBox(ctx, x, y, w, w * 0.55, h, '#807870');
+
+    // Sawtooth roof
+    ctx.fillStyle = '#606058';
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(x - w/2 + i * (w/3), y - h);
+      ctx.lineTo(x - w/2 + i * (w/3) + w/6, y - h - 10);
+      ctx.lineTo(x - w/2 + (i+1) * (w/3), y - h);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Smokestack
+    ctx.fillStyle = '#604840';
+    ctx.fillRect(x + w/4, y - h - 25, 8, 25);
+
+    // Smoke
+    ctx.fillStyle = 'rgba(100,100,100,0.4)';
+    ctx.beginPath();
+    ctx.ellipse(x + w/4 + 4, y - h - 30, 6, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(x + w/4 + 6, y - h - 38, 8, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Windows
+    ctx.fillStyle = '#a0a090';
+    for (let wx = 0; wx < 3; wx++) {
+      ctx.fillRect(x - w/3 + wx * (w/3), y - h + 10, 6, 8);
+    }
+
+  } else {
+    // Heavy industry / refinery
+    const w = 44;
+    const h = 40 + level * 10;
+
+    drawIsometricBox(ctx, x, y, w, w * 0.5, h, '#706860');
+
+    // Multiple smokestacks
+    ctx.fillStyle = '#585048';
+    ctx.fillRect(x - w/3, y - h - 30, 6, 30);
+    ctx.fillRect(x, y - h - 40, 8, 40);
+    ctx.fillRect(x + w/4, y - h - 25, 6, 25);
+
+    // Tanks
+    ctx.fillStyle = '#808078';
+    ctx.beginPath();
+    ctx.ellipse(x - w/4, y - 10, 10, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(x - w/4 - 10, y - 25, 20, 15);
+
+    // Pipes
+    ctx.strokeStyle = '#606058';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x - w/4, y - 25);
+    ctx.lineTo(x - w/4, y - h + 10);
+    ctx.lineTo(x + w/4, y - h + 10);
+    ctx.stroke();
+  }
+}
+
+// Draw isometric box with proper 3D shading
+function drawIsometricBox(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, d: number, h: number, baseColor: string): void {
+  // Parse color and create shading
+  const rgb = parseColor(baseColor);
+  const frontColor = baseColor;
+  const rightColor = `rgb(${Math.max(0, rgb.r - 30)}, ${Math.max(0, rgb.g - 30)}, ${Math.max(0, rgb.b - 30)})`;
+  const topColor = `rgb(${Math.min(255, rgb.r + 20)}, ${Math.min(255, rgb.g + 20)}, ${Math.min(255, rgb.b + 20)})`;
+
+  // Front face
+  ctx.fillStyle = frontColor;
+  ctx.fillRect(x - w/2, y - h, w, h);
+
+  // Right face (isometric)
+  ctx.fillStyle = rightColor;
+  ctx.beginPath();
+  ctx.moveTo(x + w/2, y);
+  ctx.lineTo(x + w/2 + d * 0.5, y - d * 0.3);
+  ctx.lineTo(x + w/2 + d * 0.5, y - h - d * 0.3);
+  ctx.lineTo(x + w/2, y - h);
+  ctx.closePath();
+  ctx.fill();
+
+  // Top face
+  ctx.fillStyle = topColor;
+  ctx.beginPath();
+  ctx.moveTo(x - w/2, y - h);
+  ctx.lineTo(x - w/2 + d * 0.5, y - h - d * 0.3);
+  ctx.lineTo(x + w/2 + d * 0.5, y - h - d * 0.3);
+  ctx.lineTo(x + w/2, y - h);
+  ctx.closePath();
+  ctx.fill();
+
+  // Outline
+  ctx.strokeStyle = `rgb(${Math.max(0, rgb.r - 50)}, ${Math.max(0, rgb.g - 50)}, ${Math.max(0, rgb.b - 50)})`;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x - w/2, y - h, w, h);
+}
+
+// Parse hex color to RGB
+function parseColor(color: string): { r: number; g: number; b: number } {
+  if (color.startsWith('#')) {
+    const hex = color.slice(1);
+    return {
+      r: parseInt(hex.slice(0, 2), 16),
+      g: parseInt(hex.slice(2, 4), 16),
+      b: parseInt(hex.slice(4, 6), 16),
+    };
+  }
+  return { r: 128, g: 128, b: 128 };
 }
 
 // Fallback building drawing functions
