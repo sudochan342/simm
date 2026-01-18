@@ -47,7 +47,7 @@ const BUILDING_CATS: { id: BuildingCategory; label: string }[] = [
 
 export default function Toolbar() {
   const [showBuildings, setShowBuildings] = useState<BuildingCategory | null>(null);
-  const { selectedTool, selectTool, stats, isInitialized } = useGameStore();
+  const { selectedTool, selectTool, stats, isInitialized, zoom, setZoom } = useGameStore();
 
   if (!isInitialized) return null;
 
