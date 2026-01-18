@@ -4,15 +4,18 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import GameCanvas from './GameCanvas';
 import StatsBar from './StatsBar';
-import BuildingToolbar from './BuildingToolbar';
+import Toolbar from './Toolbar';
 import NewGameModal from './NewGameModal';
+import BudgetModal from './BudgetModal';
+import { SC3000_COLORS } from '@/game/types';
 
 export default function Game() {
   const [showNewGame, setShowNewGame] = useState(true);
+  const [showBudget, setShowBudget] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const tickRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { tick, isPaused, gameSpeed, isInitialized } = useGameStore();
+  const { tick, speed, isInitialized, selectTool, toggleZones } = useGameStore();
 
   // Client-side only
   useEffect(() => {
@@ -34,8 +37,8 @@ export default function Game() {
       clearInterval(tickRef.current);
     }
 
-    if (!isPaused) {
-      const interval = Math.max(100, 800 / gameSpeed);
+    if (speed > 0) {
+      const interval = Math.max(50, 500 / speed);
       tickRef.current = setInterval(() => {
         tick();
       }, interval);
@@ -46,7 +49,7 @@ export default function Game() {
         clearInterval(tickRef.current);
       }
     };
-  }, [isClient, isInitialized, isPaused, gameSpeed, tick]);
+  }, [isClient, isInitialized, speed, tick]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -54,32 +57,41 @@ export default function Game() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const store = useGameStore.getState();
-      if (!store.isInitialized) return;
 
       switch (e.key) {
         case 'Escape':
-          store.selectTool(null);
+          if (showBudget) {
+            setShowBudget(false);
+          } else if (showNewGame && store.isInitialized) {
+            setShowNewGame(false);
+          } else {
+            store.selectTool('pointer');
+          }
           break;
-        case 'g':
-        case 'G':
-          store.toggleGrid();
+        case 'z':
+        case 'Z':
+          store.toggleZones();
           break;
         case ' ':
           e.preventDefault();
-          store.togglePause();
+          store.setSpeed(store.speed === 0 ? 1 : 0);
           break;
         case '1':
-          store.setGameSpeed(1);
+          store.setSpeed(1);
           break;
         case '2':
-          store.setGameSpeed(2);
+          store.setSpeed(2);
           break;
         case '3':
-          store.setGameSpeed(3);
+          store.setSpeed(3);
           break;
         case 'b':
         case 'B':
           store.selectTool('bulldoze');
+          break;
+        case 'r':
+        case 'R':
+          store.selectTool('road');
           break;
         case 'n':
         case 'N':
@@ -90,44 +102,60 @@ export default function Game() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isClient]);
+  }, [isClient, showBudget, showNewGame]);
 
   if (!isClient) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#1a1f2e]">
+      <div
+        className="h-screen w-screen flex items-center justify-center"
+        style={{ background: SC3000_COLORS.uiBackground }}
+      >
         <div className="text-center">
-          <div className="relative">
-            <div className="w-20 h-20 mx-auto mb-4 relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-2xl rotate-6" />
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-cyan-600 rounded-2xl flex items-center justify-center">
-                <span className="text-4xl">🏙️</span>
-              </div>
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Loading...</h1>
+          <div className="text-6xl mb-4 animate-pulse">🏙️</div>
+          <h1 className="text-2xl font-bold" style={{ color: SC3000_COLORS.uiText }}>
+            Loading SimCity 3000...
+          </h1>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#1a1f2e] flex flex-col select-none">
+    <div
+      className="h-screen w-screen overflow-hidden flex flex-col select-none"
+      style={{ background: SC3000_COLORS.uiBackground }}
+    >
       {/* Top Stats Bar */}
-      <StatsBar onNewGame={() => setShowNewGame(true)} />
+      <StatsBar onNewGame={() => setShowNewGame(true)} onBudget={() => setShowBudget(true)} />
 
-      {/* Game Canvas */}
+      {/* Main Game Area */}
       <div className="flex-1 relative overflow-hidden">
         <GameCanvas />
+        <Toolbar />
 
-        {/* Controls overlay - collapsible */}
-        {isInitialized && <ControlsOverlay />}
-
-        {/* Achievement notifications */}
-        <UnlockNotifications />
+        {/* Keyboard shortcuts hint */}
+        {isInitialized && (
+          <div
+            className="absolute bottom-4 right-4 p-3 rounded-lg text-xs"
+            style={{
+              background: SC3000_COLORS.uiPanel + 'dd',
+              border: `1px solid ${SC3000_COLORS.uiBorder}`,
+              color: SC3000_COLORS.uiTextDim,
+            }}
+          >
+            <div className="font-bold mb-2" style={{ color: SC3000_COLORS.uiText }}>Shortcuts</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <span>Right-click drag</span><span>Pan</span>
+              <span>Scroll</span><span>Zoom</span>
+              <span>Space</span><span>Pause</span>
+              <span>Z</span><span>Toggle zones</span>
+              <span>B</span><span>Bulldoze</span>
+              <span>R</span><span>Road</span>
+              <span>1-3</span><span>Speed</span>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Bottom Toolbar */}
-      <BuildingToolbar />
 
       {/* New Game Modal */}
       <NewGameModal
@@ -138,117 +166,9 @@ export default function Game() {
           }
         }}
       />
-    </div>
-  );
-}
 
-function ControlsOverlay() {
-  const [collapsed, setCollapsed] = useState(false);
-
-  return (
-    <div className="absolute top-3 right-3">
-      <div
-        className={`bg-[#0d1117]/90 backdrop-blur-md border border-[#30363d] rounded-xl overflow-hidden transition-all duration-300 ${
-          collapsed ? 'w-10' : 'w-48'
-        }`}
-      >
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="w-full px-3 py-2 flex items-center justify-between text-[#8b949e] hover:text-white hover:bg-[#21262d] transition-colors"
-        >
-          {!collapsed && <span className="text-xs font-medium uppercase tracking-wider">Controls</span>}
-          <svg
-            className={`w-4 h-4 transition-transform ${collapsed ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-
-        {!collapsed && (
-          <div className="px-3 pb-3 space-y-1.5">
-            <ControlItem keys={['LMB']} action="Place" />
-            <ControlItem keys={['RMB']} action="Pan view" />
-            <ControlItem keys={['Scroll']} action="Zoom" />
-            <ControlItem keys={['Space']} action="Pause" />
-            <ControlItem keys={['G']} action="Toggle grid" />
-            <ControlItem keys={['B']} action="Bulldoze" />
-            <ControlItem keys={['1', '2', '3']} action="Speed" />
-            <ControlItem keys={['N']} action="New city" />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ControlItem({ keys, action }: { keys: string[]; action: string }) {
-  return (
-    <div className="flex items-center justify-between text-xs">
-      <div className="flex gap-1">
-        {keys.map((key) => (
-          <kbd
-            key={key}
-            className="px-1.5 py-0.5 bg-[#21262d] border border-[#30363d] rounded text-[#8b949e] font-mono text-[10px]"
-          >
-            {key}
-          </kbd>
-        ))}
-      </div>
-      <span className="text-[#8b949e]">{action}</span>
-    </div>
-  );
-}
-
-function UnlockNotifications() {
-  const [notifications, setNotifications] = useState<Array<{ id: number; msg: string }>>([]);
-  const { stats } = useGameStore();
-  const lastPopRef = useRef(0);
-  const idRef = useRef(0);
-
-  useEffect(() => {
-    const milestones = [
-      { pop: 50, msg: 'Medium Houses unlocked!' },
-      { pop: 100, msg: 'Department Store & Large Park unlocked!' },
-      { pop: 200, msg: 'Apartments & Hospital unlocked!' },
-      { pop: 300, msg: 'Office Building unlocked!' },
-      { pop: 500, msg: 'City Hall & Highway unlocked!' },
-      { pop: 1000, msg: 'Residential Tower unlocked!' },
-      { pop: 2000, msg: 'Stadium unlocked!' },
-      { pop: 3000, msg: 'Casino unlocked!' },
-      { pop: 5000, msg: 'Monument unlocked!' },
-      { pop: 10000, msg: 'Airport unlocked - Metropolis achieved!' },
-    ];
-
-    milestones.forEach(({ pop, msg }) => {
-      if (stats.population >= pop && lastPopRef.current < pop) {
-        const id = idRef.current++;
-        setNotifications((prev) => [...prev, { id, msg }]);
-        setTimeout(() => {
-          setNotifications((prev) => prev.filter((n) => n.id !== id));
-        }, 4000);
-      }
-    });
-
-    lastPopRef.current = stats.population;
-  }, [stats.population]);
-
-  return (
-    <div className="absolute top-3 left-3 space-y-2 pointer-events-none">
-      {notifications.map(({ id, msg }) => (
-        <div
-          key={id}
-          className="flex items-center gap-3 bg-gradient-to-r from-amber-500/90 to-orange-500/90 backdrop-blur-sm text-white px-4 py-2.5 rounded-lg shadow-lg shadow-orange-500/20 animate-[slideIn_0.3s_ease-out]"
-          style={{
-            animation: 'slideIn 0.3s ease-out',
-          }}
-        >
-          <span className="text-xl">🎉</span>
-          <span className="font-medium text-sm">{msg}</span>
-        </div>
-      ))}
+      {/* Budget Modal */}
+      <BudgetModal isOpen={showBudget} onClose={() => setShowBudget(false)} />
     </div>
   );
 }
