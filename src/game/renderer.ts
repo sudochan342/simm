@@ -9,7 +9,7 @@ import {
   ZoneDensity,
   InfrastructureType,
 } from './types';
-import { sprites, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_DEPTH } from './sprites';
+import { sprites, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_DEPTH, BUILDING_TILE_WIDTH, BUILDING_TILE_HEIGHT } from './sprites';
 
 // Export tile dimensions
 export const TILE_WIDTH = SPRITE_WIDTH;
@@ -429,24 +429,41 @@ export function drawZoneBuilding(ctx: CanvasRenderingContext2D, tile: Tile, x: n
   // Get appropriate sprite based on zone type and development level
   // Level 1-8 maps to different building sprites
   const level = Math.max(1, Math.min(8, development));
+  const seed = tile.x * 1000 + tile.y;
 
-  // Use the building sprites from Kenney's city pack
-  const sprite = sprites.getBuilding(zone, level);
-  if (sprite) {
-    // Position sprite so its bottom aligns with tile base
-    ctx.drawImage(sprite, x - sprite.width / 2, baseY - sprite.height + 20);
-  } else {
-    // Fallback to direct drawing
+  // Try to draw from sprite sheet first
+  const tileInfo = sprites.getBuildingTileInfo(zone, level, seed);
+
+  // Scale building based on development level (1.0 to 1.5)
+  const scale = 1.0 + (level - 1) * 0.07;
+  const scaledWidth = BUILDING_TILE_WIDTH * scale;
+  const scaledHeight = BUILDING_TILE_HEIGHT * scale;
+
+  // Position: center horizontally, align bottom with tile base
+  const drawX = x - scaledWidth / 2;
+  const drawY = baseY - scaledHeight + 10;
+
+  const drawn = sprites.drawBuildingTile(
+    ctx,
+    tileInfo.sheetIndex,
+    tileInfo.tileIndex,
+    drawX,
+    drawY,
+    scale
+  );
+
+  if (!drawn) {
+    // Fallback to direct drawing if sprite sheet not loaded
     const density = zoneDensity || 'light';
     switch (zone) {
       case 'residential':
-        drawResidentialFallback(ctx, x, baseY, density, development, tile.x * 1000 + tile.y);
+        drawResidentialFallback(ctx, x, baseY, density, development, seed);
         break;
       case 'commercial':
-        drawCommercialFallback(ctx, x, baseY, density, development, tile.x * 1000 + tile.y);
+        drawCommercialFallback(ctx, x, baseY, density, development, seed);
         break;
       case 'industrial':
-        drawIndustrialFallback(ctx, x, baseY, density, development, tile.x * 1000 + tile.y);
+        drawIndustrialFallback(ctx, x, baseY, density, development, seed);
         break;
     }
   }

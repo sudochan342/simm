@@ -1,10 +1,24 @@
 // SimCity 3000 Style Sprite Manager
-// Loads actual sprite images from Kenney's CC0 isometric asset packs
+// Uses Kenney's CC0 assets for terrain/roads and Screaming Brain Studios town tiles for buildings
 
 // Kenney's sprites are 132x83, we'll use them at native size for quality
 export const SPRITE_WIDTH = 132;
 export const SPRITE_HEIGHT = 66; // Base tile height (the isometric diamond)
 export const SPRITE_DEPTH = 17;  // Height per elevation level
+
+// Town building tile dimensions (from Screaming Brain Studios pack)
+export const BUILDING_TILE_WIDTH = 64;
+export const BUILDING_TILE_HEIGHT = 96;
+export const BUILDING_SHEET_COLS = 18;
+export const BUILDING_SHEET_ROWS = 8;
+
+// Building sprite sheet definitions
+const BUILDING_SHEETS = {
+  buildings1: '/sprites/town_tiles/Building Tiles/Isometric Buildings 1 - 64x96.png',
+  buildings2: '/sprites/town_tiles/Building Tiles/Isometric Buildings 2 - 64x96.png',
+  buildings3: '/sprites/town_tiles/Building Tiles/Isometric Buildings 3 - 64x96.png',
+  roofs: '/sprites/town_tiles/Roof Tiles/Isometric Town Roofing - 143x92.png',
+};
 
 // Sprite mappings from Kenney asset packs
 // landscapeTiles: grass, water, dirt, trees, etc.
@@ -98,6 +112,7 @@ const SPRITE_MAPPINGS = {
 // Sprite cache
 class SpriteManager {
   private cache = new Map<string, HTMLImageElement>();
+  private sheets = new Map<string, HTMLImageElement>();
   private loadPromises = new Map<string, Promise<void>>();
   private initialized = false;
   private initPromise: Promise<void> | null = null;
@@ -112,11 +127,45 @@ class SpriteManager {
     this.initialized = true;
   }
 
+  isReady(): boolean {
+    return this.initialized;
+  }
+
   private async loadAllSprites(): Promise<void> {
-    const promises = Object.entries(SPRITE_MAPPINGS).map(([name, src]) =>
+    // Load individual sprites
+    const spritePromises = Object.entries(SPRITE_MAPPINGS).map(([name, src]) =>
       this.loadImage(name, src)
     );
-    await Promise.all(promises);
+
+    // Load sprite sheets
+    const sheetPromises = Object.entries(BUILDING_SHEETS).map(([name, src]) =>
+      this.loadSheet(name, src)
+    );
+
+    await Promise.all([...spritePromises, ...sheetPromises]);
+  }
+
+  private loadSheet(name: string, src: string): Promise<void> {
+    const key = `sheet_${name}`;
+    if (this.loadPromises.has(key)) {
+      return this.loadPromises.get(key)!;
+    }
+
+    const promise = new Promise<void>((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        this.sheets.set(name, img);
+        resolve();
+      };
+      img.onerror = () => {
+        console.warn(`Failed to load sprite sheet: ${name} from ${src}`);
+        resolve();
+      };
+      img.src = src;
+    });
+
+    this.loadPromises.set(key, promise);
+    return promise;
   }
 
   private loadImage(name: string, src: string): Promise<void> {
@@ -157,11 +206,79 @@ class SpriteManager {
   }
 
   // Get building sprite based on zone type, density, and development level
+  // Returns null - use drawBuildingTile instead for sprite sheet buildings
   getBuilding(zone: string, level: number): HTMLImageElement | null {
-    const zonePrefix = zone === 'residential' ? 'res' :
-                       zone === 'commercial' ? 'com' : 'ind';
+    // Legacy method - return null to trigger sprite sheet rendering
+    return null;
+  }
+
+  // Get a sprite sheet by name
+  getSheet(name: string): HTMLImageElement | null {
+    return this.sheets.get(name) || null;
+  }
+
+  // Draw a building tile from a sprite sheet directly to a canvas context
+  // sheetIndex: 0 = buildings1, 1 = buildings2, 2 = buildings3
+  // tileIndex: 0-143 (18 cols x 8 rows per sheet)
+  drawBuildingTile(
+    ctx: CanvasRenderingContext2D,
+    sheetIndex: number,
+    tileIndex: number,
+    destX: number,
+    destY: number,
+    scale: number = 1
+  ): boolean {
+    const sheetNames = ['buildings1', 'buildings2', 'buildings3'];
+    const sheetName = sheetNames[sheetIndex];
+    const sheet = this.sheets.get(sheetName);
+
+    if (!sheet) return false;
+
+    const col = tileIndex % BUILDING_SHEET_COLS;
+    const row = Math.floor(tileIndex / BUILDING_SHEET_COLS);
+    const srcX = col * BUILDING_TILE_WIDTH;
+    const srcY = row * BUILDING_TILE_HEIGHT;
+
+    ctx.drawImage(
+      sheet,
+      srcX, srcY, BUILDING_TILE_WIDTH, BUILDING_TILE_HEIGHT,
+      destX, destY, BUILDING_TILE_WIDTH * scale, BUILDING_TILE_HEIGHT * scale
+    );
+
+    return true;
+  }
+
+  // Get building tile info based on zone and level
+  // Returns { sheetIndex, tileIndex } for the appropriate building
+  getBuildingTileInfo(zone: string, level: number, seed: number = 0): { sheetIndex: number; tileIndex: number } {
+    // Map zone types and development levels to specific tiles in the sprite sheets
+    // Each sheet has 144 tiles (18x8), 432 total across 3 sheets
+    // We'll pick tiles that look appropriate for each zone/level combo
+
     const clampedLevel = Math.max(1, Math.min(8, level));
-    return this.get(`building_${zonePrefix}_${clampedLevel}`);
+
+    // Use seed for variety within same level
+    const variant = seed % 6;
+
+    // Residential: Lower rows (smaller buildings) for lower levels
+    // Commercial: Middle area tiles
+    // Industrial: More utilitarian looking tiles
+    if (zone === 'residential') {
+      // Residential buildings - use sheet 1, rows based on level
+      const row = Math.min(7, Math.floor((clampedLevel - 1) / 2) + variant % 2);
+      const col = (clampedLevel + variant) % 18;
+      return { sheetIndex: 0, tileIndex: row * 18 + col };
+    } else if (zone === 'commercial') {
+      // Commercial buildings - use sheet 2
+      const row = Math.min(7, Math.floor((clampedLevel - 1) / 2) + variant % 2);
+      const col = (clampedLevel + variant * 2) % 18;
+      return { sheetIndex: 1, tileIndex: row * 18 + col };
+    } else {
+      // Industrial buildings - use sheet 3
+      const row = Math.min(7, Math.floor((clampedLevel - 1) / 2));
+      const col = (clampedLevel + variant * 3) % 18;
+      return { sheetIndex: 2, tileIndex: row * 18 + col };
+    }
   }
 
   // Get grass sprite variant

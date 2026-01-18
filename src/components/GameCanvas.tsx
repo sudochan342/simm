@@ -16,6 +16,7 @@ import {
   TILE_WIDTH,
   TILE_HEIGHT,
 } from '@/game/renderer';
+import { sprites } from '@/game/sprites';
 import {
   BuildingDef,
   ZoneType,
@@ -34,6 +35,7 @@ export default function GameCanvas() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [lastDragPos, setLastDragPos] = useState({ x: 0, y: 0 });
   const [hoverTile, setHoverTile] = useState<{ x: number; y: number } | null>(null);
+  const [spritesLoaded, setSpritesLoaded] = useState(false);
 
   // Camera offset in pixels
   const [cameraX, setCameraX] = useState(0);
@@ -58,7 +60,12 @@ export default function GameCanvas() {
 
   // Initialize renderer/sprites on mount
   useEffect(() => {
-    initRenderer();
+    const loadSprites = async () => {
+      initRenderer();
+      await sprites.init();
+      setSpritesLoaded(true);
+    };
+    loadSprites();
   }, []);
 
   // Initialize camera to center of map when game starts
@@ -352,10 +359,21 @@ export default function GameCanvas() {
 
   if (!isInitialized) {
     return (
-      <div className="flex-1 flex items-center justify-center" style={{ background: SC3K_BG }}>
+      <div className="flex-1 flex items-center justify-center" style={{ background: SC3K_BG, width: '100%', height: '100%' }}>
         <div className="text-center">
           <div className="text-6xl mb-4">🏙️</div>
           <p className="text-gray-400">Start a new city to begin</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!spritesLoaded) {
+    return (
+      <div className="flex-1 flex items-center justify-center" style={{ background: SC3K_BG, width: '100%', height: '100%' }}>
+        <div className="text-center">
+          <div className="text-4xl mb-4">Loading...</div>
+          <p className="text-gray-400">Loading city assets</p>
         </div>
       </div>
     );
@@ -365,7 +383,7 @@ export default function GameCanvas() {
     <canvas
       ref={canvasRef}
       className="block cursor-crosshair"
-      style={{ background: SC3K_BG }}
+      style={{ background: SC3K_BG, width: '100%', height: '100%' }}
       onClick={handleClick}
       onMouseMove={handleMouseMove}
       onMouseDown={handleMouseDown}
