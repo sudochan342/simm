@@ -42,6 +42,7 @@ export interface Tile {
   terrain: 'grass' | 'water' | 'sand' | 'dirt';
   building: Building | null;
   zoneType: BuildingCategory | null;
+  elevation?: number;
 }
 
 export interface CityStats {

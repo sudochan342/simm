@@ -5,23 +5,26 @@ import { useGameStore } from '@/store/gameStore';
 import { BuildingCategory, BuildingType, BUILDING_TYPES, getCategoryColor } from '@/game/types';
 
 const CATEGORIES: { id: BuildingCategory; name: string; icon: string }[] = [
-  { id: 'residential', name: 'Residential', icon: '🏠' },
-  { id: 'commercial', name: 'Commercial', icon: '🏪' },
-  { id: 'industrial', name: 'Industrial', icon: '🏭' },
-  { id: 'road', name: 'Roads', icon: '🛣️' },
+  { id: 'residential', name: 'Homes', icon: '🏠' },
+  { id: 'commercial', name: 'Shops', icon: '🏪' },
+  { id: 'industrial', name: 'Industry', icon: '🏭' },
+  { id: 'road', name: 'Roads', icon: '🛤️' },
   { id: 'park', name: 'Parks', icon: '🌳' },
-  { id: 'utility', name: 'Utilities', icon: '⚡' },
-  { id: 'special', name: 'Special', icon: '🏛️' },
+  { id: 'utility', name: 'Services', icon: '⚡' },
+  { id: 'special', name: 'Landmarks', icon: '🏛️' },
 ];
 
 export default function BuildingToolbar() {
   const [selectedCategory, setSelectedCategory] = useState<BuildingCategory | null>(null);
-  const [showBuildMenu, setShowBuildMenu] = useState(false);
 
-  const { selectedTool, selectTool, stats, toggleGrid, showGrid, saveGame, resetGame } = useGameStore();
+  const { selectedTool, selectTool, stats, toggleGrid, showGrid, saveGame, isInitialized } = useGameStore();
 
   const availableBuildings = BUILDING_TYPES.filter(
     (b) => !b.unlockPopulation || stats.population >= b.unlockPopulation
+  );
+
+  const lockedBuildings = BUILDING_TYPES.filter(
+    (b) => b.unlockPopulation && stats.population < b.unlockPopulation
   );
 
   const getBuildingsByCategory = (category: BuildingCategory): BuildingType[] => {
@@ -29,30 +32,21 @@ export default function BuildingToolbar() {
   };
 
   const handleCategoryClick = (category: BuildingCategory) => {
-    if (selectedCategory === category) {
-      setSelectedCategory(null);
-      setShowBuildMenu(false);
-    } else {
-      setSelectedCategory(category);
-      setShowBuildMenu(true);
-    }
+    setSelectedCategory(selectedCategory === category ? null : category);
   };
 
   const handleBuildingSelect = (building: BuildingType) => {
     selectTool(building);
-    setShowBuildMenu(false);
-    setSelectedCategory(null);
   };
 
   const formatCost = (cost: number): string => {
-    if (cost >= 1000) return `$${(cost / 1000).toFixed(1)}K`;
+    if (cost >= 1000) return `$${(cost / 1000).toFixed(0)}K`;
     return `$${cost}`;
   };
 
   const handleSave = () => {
     const saveData = saveGame();
     localStorage.setItem('simcity_save', saveData);
-    alert('Game saved!');
   };
 
   const handleLoad = () => {
@@ -60,212 +54,269 @@ export default function BuildingToolbar() {
     if (saveData) {
       const store = useGameStore.getState();
       store.loadGame(saveData);
-      alert('Game loaded!');
-    } else {
-      alert('No save game found!');
     }
   };
 
+  if (!isInitialized) {
+    return (
+      <div className="bg-[#0d1117] border-t border-[#21262d] h-20 flex items-center justify-center">
+        <span className="text-[#8b949e] text-sm">Start a new city to begin building</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 border-t border-slate-700 shadow-2xl">
-      {/* Building Categories */}
-      <div className="flex items-center justify-between px-4 py-2">
+    <div className="bg-[#0d1117] border-t border-[#21262d]">
+      {/* Main toolbar */}
+      <div className="flex items-center gap-2 px-3 py-2">
+        {/* Tool buttons */}
         <div className="flex items-center gap-1">
-          {/* Tool buttons */}
-          <button
+          <ToolButton
+            icon="👆"
+            label="Select"
+            isActive={selectedTool === 'select'}
             onClick={() => selectTool('select')}
-            className={`flex flex-col items-center justify-center w-14 h-14 rounded-lg transition-all ${
-              selectedTool === 'select'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-            }`}
-          >
-            <span className="text-xl">👆</span>
-            <span className="text-xs">Select</span>
-          </button>
-
-          <button
+          />
+          <ToolButton
+            icon="🚧"
+            label="Bulldoze"
+            isActive={selectedTool === 'bulldoze'}
             onClick={() => selectTool('bulldoze')}
-            className={`flex flex-col items-center justify-center w-14 h-14 rounded-lg transition-all ${
-              selectedTool === 'bulldoze'
-                ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-            }`}
-          >
-            <span className="text-xl">🚧</span>
-            <span className="text-xs">Bulldoze</span>
-          </button>
+            variant="danger"
+          />
+        </div>
 
-          <div className="h-10 w-px bg-slate-600 mx-2" />
+        <div className="w-px h-10 bg-[#30363d]" />
 
-          {/* Category buttons */}
+        {/* Category buttons */}
+        <div className="flex items-center gap-1">
           {CATEGORIES.map((cat) => {
             const buildings = getBuildingsByCategory(cat.id);
             const isSelected = selectedCategory === cat.id;
             const isToolFromCategory =
               selectedTool !== null && typeof selectedTool === 'object' && selectedTool.category === cat.id;
+            const hasBuildings = buildings.length > 0;
 
             return (
               <button
                 key={cat.id}
-                onClick={() => handleCategoryClick(cat.id)}
-                disabled={buildings.length === 0}
-                className={`flex flex-col items-center justify-center w-14 h-14 rounded-lg transition-all ${
-                  isSelected || isToolFromCategory
-                    ? 'bg-slate-600'
-                    : buildings.length === 0
-                    ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
+                onClick={() => hasBuildings && handleCategoryClick(cat.id)}
+                disabled={!hasBuildings}
+                className={`
+                  relative flex flex-col items-center justify-center w-14 h-14 rounded-xl transition-all
+                  ${isSelected ? 'bg-[#21262d] scale-105' : ''}
+                  ${hasBuildings ? 'hover:bg-[#161b22] cursor-pointer' : 'opacity-40 cursor-not-allowed'}
+                `}
                 style={{
-                  borderColor: getCategoryColor(cat.id),
-                  boxShadow: isSelected || isToolFromCategory ? `0 0 0 2px ${getCategoryColor(cat.id)}` : undefined,
+                  boxShadow: isToolFromCategory ? `0 0 0 2px ${getCategoryColor(cat.id)}` : undefined,
                 }}
               >
                 <span className="text-xl">{cat.icon}</span>
-                <span className="text-xs truncate w-full text-center">{cat.name}</span>
+                <span className="text-[10px] text-[#8b949e] mt-0.5">{cat.name}</span>
+                {buildings.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#238636] rounded-full text-[9px] text-white flex items-center justify-center">
+                    {buildings.length}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
 
-        {/* Selected Tool Info */}
-        <div className="flex items-center gap-4">
-          {selectedTool !== null && typeof selectedTool === 'object' && (
-            <div className="flex items-center gap-2 bg-slate-700/50 rounded-lg px-3 py-2">
-              <span className="text-2xl">{selectedTool.emoji}</span>
-              <div className="flex flex-col">
-                <span className="font-bold text-white">{selectedTool.name}</span>
-                <span className="text-xs text-yellow-400">{formatCost(selectedTool.cost)}</span>
+        <div className="flex-1" />
+
+        {/* Selected tool display */}
+        {selectedTool !== null && typeof selectedTool === 'object' && (
+          <div className="flex items-center gap-3 px-4 py-2 bg-[#161b22] rounded-xl border border-[#30363d]">
+            <span className="text-2xl">{selectedTool.emoji}</span>
+            <div>
+              <div className="text-sm font-medium text-white">{selectedTool.name}</div>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs ${stats.money >= selectedTool.cost ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {formatCost(selectedTool.cost)}
+                </span>
+                {selectedTool.width > 1 || selectedTool.height > 1 ? (
+                  <span className="text-[10px] text-[#8b949e]">{selectedTool.width}x{selectedTool.height}</span>
+                ) : null}
               </div>
             </div>
-          )}
-
-          <div className="h-10 w-px bg-slate-600" />
-
-          {/* Utility buttons */}
-          <div className="flex items-center gap-1">
-            <button
-              onClick={toggleGrid}
-              className={`px-3 py-2 rounded-lg transition-all ${
-                showGrid ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'
-              }`}
-            >
-              <span className="text-lg">📐</span>
-            </button>
-            <button
-              onClick={handleSave}
-              className="px-3 py-2 rounded-lg bg-slate-700 hover:bg-green-600 transition-all"
-            >
-              <span className="text-lg">💾</span>
-            </button>
-            <button
-              onClick={handleLoad}
-              className="px-3 py-2 rounded-lg bg-slate-700 hover:bg-blue-600 transition-all"
-            >
-              <span className="text-lg">📂</span>
-            </button>
-            <button
-              onClick={() => {
-                if (confirm('Are you sure you want to start a new city?')) {
-                  resetGame();
-                }
-              }}
-              className="px-3 py-2 rounded-lg bg-slate-700 hover:bg-red-600 transition-all"
-            >
-              <span className="text-lg">🗑️</span>
-            </button>
           </div>
+        )}
+
+        <div className="w-px h-10 bg-[#30363d]" />
+
+        {/* Utility buttons */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleGrid}
+            className={`p-2.5 rounded-lg transition-all ${
+              showGrid ? 'bg-[#238636] text-white' : 'bg-[#21262d] text-[#8b949e] hover:text-white'
+            }`}
+            title="Toggle Grid (G)"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16M6 4v16M12 4v16M18 4v16" />
+            </svg>
+          </button>
+          <button
+            onClick={handleSave}
+            className="p-2.5 rounded-lg bg-[#21262d] text-[#8b949e] hover:text-white hover:bg-[#30363d] transition-all"
+            title="Save Game"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+          </button>
+          <button
+            onClick={handleLoad}
+            className="p-2.5 rounded-lg bg-[#21262d] text-[#8b949e] hover:text-white hover:bg-[#30363d] transition-all"
+            title="Load Game"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+          </button>
         </div>
       </div>
 
-      {/* Building Selection Menu */}
-      {showBuildMenu && selectedCategory && (
-        <div className="absolute bottom-20 left-4 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl p-4 max-w-3xl z-50">
-          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-600">
-            <span className="text-xl">
-              {CATEGORIES.find((c) => c.id === selectedCategory)?.icon}
-            </span>
-            <h3 className="text-lg font-bold text-white">
-              {CATEGORIES.find((c) => c.id === selectedCategory)?.name}
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-4 gap-2">
-            {getBuildingsByCategory(selectedCategory).map((building) => {
-              const canAfford = stats.money >= building.cost;
-              const isSelected =
-                selectedTool !== null && typeof selectedTool === 'object' && selectedTool.id === building.id;
-
-              return (
-                <button
-                  key={building.id}
-                  onClick={() => handleBuildingSelect(building)}
-                  disabled={!canAfford}
-                  className={`flex flex-col items-center p-3 rounded-lg transition-all ${
-                    isSelected
-                      ? 'bg-blue-600 ring-2 ring-blue-400'
-                      : canAfford
-                      ? 'bg-slate-700 hover:bg-slate-600'
-                      : 'bg-slate-800 opacity-50 cursor-not-allowed'
-                  }`}
-                >
-                  <span className="text-3xl mb-1">{building.emoji}</span>
-                  <span className="text-sm font-medium text-white truncate w-full text-center">
-                    {building.name}
-                  </span>
-                  <span
-                    className={`text-xs ${canAfford ? 'text-yellow-400' : 'text-red-400'}`}
-                  >
-                    {formatCost(building.cost)}
-                  </span>
-
-                  {/* Building stats preview */}
-                  <div className="flex flex-wrap gap-1 mt-1 justify-center">
-                    {building.population && (
-                      <span className="text-xs bg-green-600/30 text-green-300 px-1 rounded">
-                        👥{building.population}
-                      </span>
-                    )}
-                    {building.jobs && (
-                      <span className="text-xs bg-blue-600/30 text-blue-300 px-1 rounded">
-                        💼{building.jobs}
-                      </span>
-                    )}
-                    {building.power && (
-                      <span className="text-xs bg-yellow-600/30 text-yellow-300 px-1 rounded">
-                        ⚡+{building.power}
-                      </span>
-                    )}
-                    {building.powerConsumption && (
-                      <span className="text-xs bg-orange-600/30 text-orange-300 px-1 rounded">
-                        ⚡-{building.powerConsumption}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Building description */}
-          {selectedTool !== null && typeof selectedTool === 'object' && selectedTool.category === selectedCategory && (
-            <div className="mt-3 pt-2 border-t border-slate-600">
-              <p className="text-sm text-slate-300">{selectedTool.description}</p>
-              <div className="flex gap-4 mt-2 text-xs text-slate-400">
-                <span>Size: {selectedTool.width}x{selectedTool.height}</span>
-                {selectedTool.happiness && <span>Happiness: +{selectedTool.happiness}</span>}
-                {selectedTool.pollution && (
-                  <span className={selectedTool.pollution > 0 ? 'text-red-400' : 'text-green-400'}>
-                    Pollution: {selectedTool.pollution > 0 ? '+' : ''}{selectedTool.pollution}
-                  </span>
-                )}
-                {selectedTool.income && <span className="text-yellow-400">Income: +${selectedTool.income}/day</span>}
+      {/* Building selection panel */}
+      {selectedCategory && (
+        <div className="border-t border-[#21262d] bg-[#161b22]">
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{CATEGORIES.find(c => c.id === selectedCategory)?.icon}</span>
+                <h3 className="text-sm font-semibold text-white">
+                  {CATEGORIES.find(c => c.id === selectedCategory)?.name}
+                </h3>
               </div>
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className="text-[#8b949e] hover:text-white"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-          )}
+
+            <div className="flex flex-wrap gap-2">
+              {getBuildingsByCategory(selectedCategory).map((building) => {
+                const canAfford = stats.money >= building.cost;
+                const isSelected = selectedTool !== null && typeof selectedTool === 'object' && selectedTool.id === building.id;
+
+                return (
+                  <button
+                    key={building.id}
+                    onClick={() => handleBuildingSelect(building)}
+                    disabled={!canAfford}
+                    className={`
+                      flex items-center gap-3 px-3 py-2 rounded-lg border transition-all min-w-[180px]
+                      ${isSelected
+                        ? 'bg-[#238636]/20 border-[#238636] ring-1 ring-[#238636]'
+                        : canAfford
+                          ? 'bg-[#0d1117] border-[#30363d] hover:border-[#8b949e] hover:bg-[#21262d]'
+                          : 'bg-[#0d1117] border-[#21262d] opacity-50 cursor-not-allowed'
+                      }
+                    `}
+                  >
+                    <span className="text-2xl">{building.emoji}</span>
+                    <div className="flex-1 text-left">
+                      <div className="text-sm font-medium text-white">{building.name}</div>
+                      <div className="flex items-center gap-2 text-[10px]">
+                        <span className={canAfford ? 'text-emerald-400' : 'text-red-400'}>
+                          {formatCost(building.cost)}
+                        </span>
+                        {building.population && (
+                          <span className="text-[#8b949e]">👥 {building.population}</span>
+                        )}
+                        {building.jobs && (
+                          <span className="text-[#8b949e]">💼 {building.jobs}</span>
+                        )}
+                        {building.power && (
+                          <span className="text-cyan-400">⚡+{building.power}</span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+
+              {/* Show locked buildings */}
+              {lockedBuildings.filter(b => b.category === selectedCategory).map((building) => (
+                <div
+                  key={building.id}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg border border-[#21262d] bg-[#0d1117] opacity-40 min-w-[180px]"
+                >
+                  <span className="text-2xl grayscale">🔒</span>
+                  <div className="flex-1 text-left">
+                    <div className="text-sm font-medium text-[#8b949e]">{building.name}</div>
+                    <div className="text-[10px] text-[#6e7681]">
+                      Unlock at {building.unlockPopulation?.toLocaleString()} pop
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Building info */}
+            {selectedTool !== null && typeof selectedTool === 'object' && selectedTool.category === selectedCategory && (
+              <div className="mt-3 pt-3 border-t border-[#30363d]">
+                <p className="text-xs text-[#8b949e] mb-2">{selectedTool.description}</p>
+                <div className="flex flex-wrap gap-3 text-[10px] text-[#8b949e]">
+                  <span>Size: {selectedTool.width}x{selectedTool.height}</span>
+                  {selectedTool.happiness && (
+                    <span className={selectedTool.happiness > 0 ? 'text-emerald-400' : 'text-red-400'}>
+                      Happiness: {selectedTool.happiness > 0 ? '+' : ''}{selectedTool.happiness}
+                    </span>
+                  )}
+                  {selectedTool.pollution && (
+                    <span className={selectedTool.pollution > 0 ? 'text-red-400' : 'text-emerald-400'}>
+                      Pollution: {selectedTool.pollution > 0 ? '+' : ''}{selectedTool.pollution}
+                    </span>
+                  )}
+                  {selectedTool.income && (
+                    <span className="text-amber-400">Income: +${selectedTool.income}/day</span>
+                  )}
+                  {selectedTool.powerConsumption && (
+                    <span className="text-orange-400">Power: -{selectedTool.powerConsumption}</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+function ToolButton({
+  icon,
+  label,
+  isActive,
+  onClick,
+  variant = 'default',
+}: {
+  icon: string;
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+  variant?: 'default' | 'danger';
+}) {
+  const baseClasses = 'flex flex-col items-center justify-center w-14 h-14 rounded-xl transition-all';
+  const activeClasses = variant === 'danger'
+    ? 'bg-red-500/20 text-red-400 ring-2 ring-red-500/30'
+    : 'bg-[#238636]/20 text-emerald-400 ring-2 ring-[#238636]/30';
+  const inactiveClasses = 'bg-[#21262d] text-[#8b949e] hover:text-white hover:bg-[#30363d]';
+
+  return (
+    <button
+      onClick={onClick}
+      className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses}`}
+    >
+      <span className="text-xl">{icon}</span>
+      <span className="text-[10px] mt-0.5">{label}</span>
+    </button>
   );
 }
