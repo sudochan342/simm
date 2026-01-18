@@ -163,28 +163,6 @@ export default function Game() {
         <GameCanvas />
         <Toolbar />
 
-        {/* Keyboard shortcuts hint */}
-        {isInitialized && (
-          <div
-            className="absolute bottom-4 right-4 p-3 rounded text-xs"
-            style={{
-              background: 'rgba(15, 15, 26, 0.9)',
-              border: `1px solid ${THEME.border}`,
-              color: THEME.textDim,
-            }}
-          >
-            <div className="font-bold mb-2" style={{ color: THEME.text }}>Shortcuts</div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-              <span>Right-click drag</span><span>Pan</span>
-              <span>Scroll</span><span>Zoom</span>
-              <span>Space</span><span>Pause</span>
-              <span>Z</span><span>Toggle zones</span>
-              <span>B</span><span>Bulldoze</span>
-              <span>R</span><span>Road</span>
-              <span>1-3</span><span>Speed</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Budget Modal */}

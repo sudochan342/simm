@@ -302,29 +302,21 @@ export default function GameCanvas() {
       ctx.restore();
 
       // Draw UI overlays (not affected by camera)
-      // Mini-map in bottom right (smaller, more distinct)
+      // Mini-map - tiny in corner
       drawMiniMap(
         ctx,
         tiles,
-        canvas.width - 115,
-        canvas.height - 95,
-        100,
-        80,
+        canvas.width - 75,
+        canvas.height - 60,
+        60,
+        50,
         0,
         0,
         width,
         height
       );
 
-      // RCI Demand meter in bottom left
-      drawDemandMeter(
-        ctx,
-        10,
-        canvas.height - 120,
-        stats.demand.residential,
-        stats.demand.commercial,
-        stats.demand.industrial
-      );
+      // Skip demand meter - it's in the top bar already
 
       animationRef.current = requestAnimationFrame(render);
     };
