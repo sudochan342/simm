@@ -361,8 +361,8 @@ export default function GameCanvas() {
     return (
       <div className="flex-1 flex items-center justify-center" style={{ background: SC3K_BG, width: '100%', height: '100%' }}>
         <div className="text-center">
-          <div className="text-6xl mb-4">🏙️</div>
-          <p className="text-gray-400">Start a new city to begin</p>
+          <div className="text-2xl mb-4 text-gray-300 font-bold">SIMM</div>
+          <p className="text-gray-500">Click NEW CITY to begin</p>
         </div>
       </div>
     );
@@ -372,8 +372,10 @@ export default function GameCanvas() {
     return (
       <div className="flex-1 flex items-center justify-center" style={{ background: SC3K_BG, width: '100%', height: '100%' }}>
         <div className="text-center">
-          <div className="text-4xl mb-4">Loading...</div>
-          <p className="text-gray-400">Loading city assets</p>
+          <div className="text-xl mb-2 text-gray-300">Loading assets...</div>
+          <div className="w-32 h-1 bg-gray-700 rounded overflow-hidden">
+            <div className="h-full bg-blue-500 animate-pulse" style={{ width: '60%' }}></div>
+          </div>
         </div>
       </div>
     );
