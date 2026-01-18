@@ -59,14 +59,17 @@ export function drawTile(
   const offsetY = -elevation * TILE_DEPTH;
 
   // Draw terrain sprite
+  // Kenney's landscape sprites are 132x83, so position them to align bottom with tile base
+  const spriteBaseOffset = 17; // Extra height above base tile (83 - 66)
+
   if (terrain === 'water') {
     drawWater(ctx, screenX, screenY, time, elevation);
   } else if (terrain === 'grass' || terrain === 'trees') {
     // Use seeded grass variant
     const variant = seed % 4;
-    const sprite = sprites.get(`grass_${variant}`);
+    const sprite = sprites.getGrass(variant);
     if (sprite) {
-      ctx.drawImage(sprite, screenX - TILE_WIDTH / 2, screenY + offsetY - 4);
+      ctx.drawImage(sprite, screenX - TILE_WIDTH / 2, screenY + offsetY - spriteBaseOffset);
     } else {
       // Fallback to direct drawing if sprite not ready
       drawGrassFallback(ctx, screenX, screenY + offsetY, seed, elevation);
@@ -78,16 +81,16 @@ export function drawTile(
   } else if (terrain === 'dirt') {
     const sprite = sprites.get('dirt');
     if (sprite) {
-      ctx.drawImage(sprite, screenX - TILE_WIDTH / 2, screenY + offsetY - 4);
+      ctx.drawImage(sprite, screenX - TILE_WIDTH / 2, screenY + offsetY - spriteBaseOffset);
     } else {
       drawDirtFallback(ctx, screenX, screenY + offsetY, elevation);
     }
   } else {
     // Default to grass
     const variant = seed % 4;
-    const sprite = sprites.get(`grass_${variant}`);
+    const sprite = sprites.getGrass(variant);
     if (sprite) {
-      ctx.drawImage(sprite, screenX - TILE_WIDTH / 2, screenY + offsetY - 4);
+      ctx.drawImage(sprite, screenX - TILE_WIDTH / 2, screenY + offsetY - spriteBaseOffset);
     }
   }
 
@@ -159,11 +162,12 @@ function drawDirtFallback(ctx: CanvasRenderingContext2D, x: number, y: number, e
 export function drawWater(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, elevation: number = 0): void {
   const offsetY = -elevation * TILE_DEPTH;
   const wave = Math.sin(time * 0.003 + x * 0.02 + y * 0.01) * 1.5;
+  const spriteBaseOffset = 17; // Extra height above base tile
 
   // Water sprite as base
   const sprite = sprites.get('water');
   if (sprite) {
-    ctx.drawImage(sprite, x - TILE_WIDTH / 2, y + offsetY + wave - 4);
+    ctx.drawImage(sprite, x - TILE_WIDTH / 2, y + offsetY + wave - spriteBaseOffset);
   } else {
     // Fallback water gradient
     const gradient = ctx.createLinearGradient(x - 20, y + offsetY, x + 20, y + TILE_HEIGHT + offsetY);
@@ -304,10 +308,11 @@ export function drawInfrastructure(
 function drawRoad(ctx: CanvasRenderingContext2D, x: number, y: number, neighbors: { n: boolean; s: boolean; e: boolean; w: boolean }): void {
   // Calculate connection mask: N=1, E=2, S=4, W=8
   const mask = (neighbors.n ? 1 : 0) | (neighbors.e ? 2 : 0) | (neighbors.s ? 4 : 0) | (neighbors.w ? 8 : 0);
-  const sprite = sprites.get(`road_${mask}`);
+  const sprite = sprites.getRoad(mask);
+  const cityBaseOffset = 38; // City sprites are 132x104 (104 - 66 = 38)
 
   if (sprite) {
-    ctx.drawImage(sprite, x - TILE_WIDTH / 2, y - 6);
+    ctx.drawImage(sprite, x - TILE_WIDTH / 2, y - cityBaseOffset);
   } else {
     // Fallback road drawing
     ctx.fillStyle = '#909090';
@@ -342,8 +347,9 @@ function drawRoad(ctx: CanvasRenderingContext2D, x: number, y: number, neighbors
 // Draw highway using sprite
 function drawHighway(ctx: CanvasRenderingContext2D, x: number, y: number): void {
   const sprite = sprites.get('highway');
+  const cityBaseOffset = 38;
   if (sprite) {
-    ctx.drawImage(sprite, x - TILE_WIDTH / 2, y - 4);
+    ctx.drawImage(sprite, x - TILE_WIDTH / 2, y - cityBaseOffset);
   } else {
     // Fallback
     ctx.fillStyle = '#404040';
@@ -360,8 +366,9 @@ function drawHighway(ctx: CanvasRenderingContext2D, x: number, y: number): void 
 // Draw rail using sprite
 function drawRail(ctx: CanvasRenderingContext2D, x: number, y: number): void {
   const sprite = sprites.get('rail');
+  const cityBaseOffset = 38;
   if (sprite) {
-    ctx.drawImage(sprite, x - TILE_WIDTH / 2, y - 6);
+    ctx.drawImage(sprite, x - TILE_WIDTH / 2, y - cityBaseOffset);
   } else {
     // Fallback
     ctx.fillStyle = '#5a5a5a';
@@ -378,8 +385,9 @@ function drawRail(ctx: CanvasRenderingContext2D, x: number, y: number): void {
 // Draw power line using sprite
 function drawPowerLine(ctx: CanvasRenderingContext2D, x: number, y: number): void {
   const sprite = sprites.get('power_line');
+  const cityBaseOffset = 38;
   if (sprite) {
-    ctx.drawImage(sprite, x - TILE_WIDTH / 2, y - 36);
+    ctx.drawImage(sprite, x - TILE_WIDTH / 2, y - cityBaseOffset);
   } else {
     // Fallback
     ctx.fillStyle = '#505050';
@@ -398,8 +406,9 @@ function drawPowerLine(ctx: CanvasRenderingContext2D, x: number, y: number): voi
 // Draw water pipe using sprite
 function drawWaterPipe(ctx: CanvasRenderingContext2D, x: number, y: number): void {
   const sprite = sprites.get('water_pipe');
+  const cityBaseOffset = 38;
   if (sprite) {
-    ctx.drawImage(sprite, x - TILE_WIDTH / 2, y - 4);
+    ctx.drawImage(sprite, x - TILE_WIDTH / 2, y - cityBaseOffset);
   } else {
     // Fallback
     ctx.fillStyle = 'rgba(0, 120, 220, 0.35)';
@@ -417,30 +426,18 @@ export function drawZoneBuilding(ctx: CanvasRenderingContext2D, tile: Tile, x: n
   const offsetY = -elevation * TILE_DEPTH;
   const baseY = y + offsetY + TILE_HEIGHT / 2;
 
-  // Get appropriate sprite based on zone type, density, and development level
-  const density = zoneDensity || 'light';
+  // Get appropriate sprite based on zone type and development level
+  // Level 1-8 maps to different building sprites
   const level = Math.max(1, Math.min(8, development));
 
-  let spriteKey: string;
-  switch (zone) {
-    case 'residential':
-      spriteKey = `res_${density}_${level}`;
-      break;
-    case 'commercial':
-      spriteKey = `com_${density}_${level}`;
-      break;
-    case 'industrial':
-      spriteKey = `ind_${density}_${level}`;
-      break;
-    default:
-      return;
-  }
-
-  const sprite = sprites.get(spriteKey);
+  // Use the building sprites from Kenney's city pack
+  const sprite = sprites.getBuilding(zone, level);
   if (sprite) {
-    ctx.drawImage(sprite, x - sprite.width / 2, baseY - sprite.height + 8);
+    // Position sprite so its bottom aligns with tile base
+    ctx.drawImage(sprite, x - sprite.width / 2, baseY - sprite.height + 20);
   } else {
     // Fallback to direct drawing
+    const density = zoneDensity || 'light';
     switch (zone) {
       case 'residential':
         drawResidentialFallback(ctx, x, baseY, density, development, tile.x * 1000 + tile.y);
@@ -569,11 +566,12 @@ export function drawPlacedBuilding(ctx: CanvasRenderingContext2D, building: Plac
   if (spriteKey) {
     const sprite = sprites.get(spriteKey);
     if (sprite) {
-      ctx.drawImage(sprite, x - sprite.width / 2, baseY - sprite.height + 12);
+      // City sprites are 132x104, position so bottom aligns with tile base
+      ctx.drawImage(sprite, x - sprite.width / 2, baseY - sprite.height + 24);
 
       // Draw no power indicator for non-power buildings
       if (!building.powered && def.category !== 'power') {
-        drawNoPowerIndicator(ctx, x, baseY - 50);
+        drawNoPowerIndicator(ctx, x, baseY - 60);
       }
       return;
     }

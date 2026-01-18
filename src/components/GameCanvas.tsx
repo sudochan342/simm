@@ -64,10 +64,11 @@ export default function GameCanvas() {
   // Initialize camera to center of map when game starts
   useEffect(() => {
     if (isInitialized && canvasRef.current) {
-      // Center the camera on the middle of the map
+      // Center the camera on the visual center of the map
+      // gridToScreen returns top vertex, so add TILE_HEIGHT/2 for visual center
       const centerTile = gridToScreen(width / 2, height / 2, 0);
       setCameraX(centerTile.x);
-      setCameraY(centerTile.y);
+      setCameraY(centerTile.y + TILE_HEIGHT / 2);
     }
   }, [isInitialized, width, height]);
 
