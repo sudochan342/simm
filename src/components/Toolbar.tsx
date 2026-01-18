@@ -191,6 +191,42 @@ export default function Toolbar() {
           })}
         </div>
       </Panel>
+
+      {/* Zoom Controls */}
+      <Panel title="View">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setZoom(zoom - 0.05)}
+            className="px-3 py-1 font-bold transition-all hover:brightness-110"
+            style={{
+              background: UI.bgLight,
+              border: `1px solid ${UI.border}`,
+              borderRadius: '4px',
+              color: UI.text,
+            }}
+          >
+            -
+          </button>
+          <div
+            className="flex-1 text-center text-xs"
+            style={{ color: UI.text }}
+          >
+            {Math.round(zoom * 100)}%
+          </div>
+          <button
+            onClick={() => setZoom(zoom + 0.05)}
+            className="px-3 py-1 font-bold transition-all hover:brightness-110"
+            style={{
+              background: UI.bgLight,
+              border: `1px solid ${UI.border}`,
+              borderRadius: '4px',
+              color: UI.text,
+            }}
+          >
+            +
+          </button>
+        </div>
+      </Panel>
     </div>
   );
 }
