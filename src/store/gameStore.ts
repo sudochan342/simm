@@ -198,7 +198,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   showWater: false,
   viewX: 0,
   viewY: 0,
-  zoom: 0.5, // Good for 1080p screens
+  zoom: 0.15, // Zoomed out to see more map
 
   // Multiplayer
   walletAddress: null,
@@ -225,7 +225,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       speed: 1,
       viewX: width / 2,
       viewY: height / 2,
-      zoom: 0.5, // Good for 1080p screens
+      zoom: 0.15, // Zoomed out to see more map
     });
 
     get().addNews('info', 'Welcome!', `Welcome to ${cityName}, ${mayorName}! Build your dream city.`);
@@ -666,7 +666,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setView: (x, y) => set({ viewX: x, viewY: y }),
 
-  setZoom: (zoom) => set({ zoom: Math.max(0.2, Math.min(2.0, zoom)) }),
+  setZoom: (zoom) => set({ zoom: Math.max(0.05, Math.min(2.0, zoom)) }),
 
   toggleZones: () => set(state => ({ showZones: !state.showZones })),
 
