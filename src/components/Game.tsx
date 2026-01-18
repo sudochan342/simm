@@ -1,33 +1,68 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { useGameStore } from '@/store/gameStore';
 import GameCanvas from './GameCanvas';
 import StatsBar from './StatsBar';
 import Toolbar from './Toolbar';
-import NewGameModal from './NewGameModal';
 import BudgetModal from './BudgetModal';
-import { SC3000_COLORS } from '@/game/types';
+
+const THEME = {
+  bg: '#0f0f1a',
+  bgLight: '#1a1a2e',
+  border: '#3a3a5c',
+  text: '#e0e0e0',
+  textDim: '#888',
+  accent: '#4a90d9',
+};
 
 export default function Game() {
-  const [showNewGame, setShowNewGame] = useState(true);
   const [showBudget, setShowBudget] = useState(false);
+  const [showCitySetup, setShowCitySetup] = useState(false);
+  const [cityName, setCityName] = useState('');
+  const [mayorName, setMayorName] = useState('');
   const [isClient, setIsClient] = useState(false);
   const tickRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { tick, speed, isInitialized, selectTool, toggleZones } = useGameStore();
+  const { tick, speed, isInitialized, initializeGame, setWallet } = useGameStore();
+  const { connected, publicKey } = useWallet();
 
   // Client-side only
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Show modal based on initialization
+  // Auto-initialize shared world
   useEffect(() => {
-    if (isInitialized) {
-      setShowNewGame(false);
+    if (isClient && !isInitialized) {
+      initializeGame(100, 100, 'Shared World', 'Community');
     }
-  }, [isInitialized]);
+  }, [isClient, isInitialized, initializeGame]);
+
+  // Handle wallet connection
+  useEffect(() => {
+    if (connected && publicKey) {
+      setWallet(publicKey.toBase58());
+      // Check if this wallet has registered a city name
+      const savedCity = localStorage.getItem(`city_${publicKey.toBase58()}`);
+      if (!savedCity) {
+        setShowCitySetup(true);
+      }
+    } else {
+      setWallet(null);
+    }
+  }, [connected, publicKey, setWallet]);
+
+  const handleCitySetup = () => {
+    if (cityName.trim() && mayorName.trim() && publicKey) {
+      localStorage.setItem(`city_${publicKey.toBase58()}`, JSON.stringify({
+        cityName: cityName.trim(),
+        mayorName: mayorName.trim(),
+      }));
+      setShowCitySetup(false);
+    }
+  };
 
   // Game loop
   useEffect(() => {
@@ -56,14 +91,13 @@ export default function Game() {
     if (!isClient) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (showCitySetup) return;
       const store = useGameStore.getState();
 
       switch (e.key) {
         case 'Escape':
           if (showBudget) {
             setShowBudget(false);
-          } else if (showNewGame && store.isInitialized) {
-            setShowNewGame(false);
           } else {
             store.selectTool('pointer');
           }
@@ -93,28 +127,24 @@ export default function Game() {
         case 'R':
           store.selectTool('road');
           break;
-        case 'n':
-        case 'N':
-          setShowNewGame(true);
-          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isClient, showBudget, showNewGame]);
+  }, [isClient, showBudget, showCitySetup]);
 
   if (!isClient) {
     return (
       <div
         className="h-screen w-screen flex items-center justify-center"
-        style={{ background: SC3000_COLORS.uiBackground }}
+        style={{ background: THEME.bg }}
       >
         <div className="text-center">
-          <div className="text-6xl mb-4 animate-pulse">🏙️</div>
-          <h1 className="text-2xl font-bold" style={{ color: SC3000_COLORS.uiText }}>
-            Loading SimCity 3000...
+          <h1 className="text-2xl font-bold mb-2" style={{ color: THEME.text }}>
+            SIMM
           </h1>
+          <p style={{ color: THEME.textDim }}>Loading...</p>
         </div>
       </div>
     );
@@ -123,10 +153,10 @@ export default function Game() {
   return (
     <div
       className="h-screen w-screen overflow-hidden flex flex-col select-none"
-      style={{ background: SC3000_COLORS.uiBackground }}
+      style={{ background: THEME.bg }}
     >
       {/* Top Stats Bar */}
-      <StatsBar onNewGame={() => setShowNewGame(true)} onBudget={() => setShowBudget(true)} />
+      <StatsBar onBudget={() => setShowBudget(true)} />
 
       {/* Main Game Area */}
       <div className="flex-1 relative overflow-hidden">
@@ -136,14 +166,14 @@ export default function Game() {
         {/* Keyboard shortcuts hint */}
         {isInitialized && (
           <div
-            className="absolute bottom-4 right-4 p-3 rounded-lg text-xs"
+            className="absolute bottom-4 right-4 p-3 rounded text-xs"
             style={{
-              background: SC3000_COLORS.uiPanel + 'dd',
-              border: `1px solid ${SC3000_COLORS.uiBorder}`,
-              color: SC3000_COLORS.uiTextDim,
+              background: 'rgba(15, 15, 26, 0.9)',
+              border: `1px solid ${THEME.border}`,
+              color: THEME.textDim,
             }}
           >
-            <div className="font-bold mb-2" style={{ color: SC3000_COLORS.uiText }}>Shortcuts</div>
+            <div className="font-bold mb-2" style={{ color: THEME.text }}>Shortcuts</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1">
               <span>Right-click drag</span><span>Pan</span>
               <span>Scroll</span><span>Zoom</span>
@@ -157,18 +187,77 @@ export default function Game() {
         )}
       </div>
 
-      {/* New Game Modal */}
-      <NewGameModal
-        isOpen={showNewGame}
-        onClose={() => {
-          if (isInitialized) {
-            setShowNewGame(false);
-          }
-        }}
-      />
-
       {/* Budget Modal */}
       <BudgetModal isOpen={showBudget} onClose={() => setShowBudget(false)} />
+
+      {/* City Setup Modal for new wallets */}
+      {showCitySetup && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: 'rgba(0,0,0,0.8)' }}
+        >
+          <div
+            className="p-6 rounded-lg max-w-sm w-full mx-4"
+            style={{ background: THEME.bgLight, border: `1px solid ${THEME.border}` }}
+          >
+            <h2 className="text-xl font-bold mb-4" style={{ color: THEME.text }}>
+              Welcome to SIMM
+            </h2>
+            <p className="text-sm mb-4" style={{ color: THEME.textDim }}>
+              Set up your city in the shared world. Other players will see your buildings!
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-xs mb-1" style={{ color: THEME.textDim }}>
+                City Name
+              </label>
+              <input
+                type="text"
+                value={cityName}
+                onChange={(e) => setCityName(e.target.value)}
+                placeholder="Enter city name..."
+                className="w-full px-3 py-2 rounded text-sm"
+                style={{
+                  background: THEME.bg,
+                  border: `1px solid ${THEME.border}`,
+                  color: THEME.text,
+                }}
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-xs mb-1" style={{ color: THEME.textDim }}>
+                Mayor Name
+              </label>
+              <input
+                type="text"
+                value={mayorName}
+                onChange={(e) => setMayorName(e.target.value)}
+                placeholder="Enter your name..."
+                className="w-full px-3 py-2 rounded text-sm"
+                style={{
+                  background: THEME.bg,
+                  border: `1px solid ${THEME.border}`,
+                  color: THEME.text,
+                }}
+              />
+            </div>
+
+            <button
+              onClick={handleCitySetup}
+              disabled={!cityName.trim() || !mayorName.trim()}
+              className="w-full py-2 rounded font-medium transition-all"
+              style={{
+                background: cityName.trim() && mayorName.trim() ? THEME.accent : THEME.border,
+                color: '#fff',
+                cursor: cityName.trim() && mayorName.trim() ? 'pointer' : 'not-allowed',
+              }}
+            >
+              Start Building
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
